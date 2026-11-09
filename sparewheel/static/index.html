@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sparewheel</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:32rem;margin:1rem auto;padding:0 1rem}
+  section{border:1px solid #8884;border-radius:8px;padding:1rem;margin:1rem 0}
+  button{padding:.5rem 1rem;margin-top:.5rem} #msg{min-height:1.5em}
+</style>
+</head>
+<body>
+<h1>Sparewheel</h1>
+
+<section>
+  <h2>Audio</h2>
+  <p>Current file: <b id="file">–</b> (<span id="playing">–</span>)</p>
+  <form id="form">
+    <input type="file" id="audio" accept="audio/*" required>
+    <br><button type="submit">Upload &amp; play</button>
+  </form>
+  <small>The previous file is deleted once the new one is fully uploaded.</small>
+</section>
+
+<section>
+  <h2>Date / RTC</h2>
+  <p>System: <code id="sys">–</code><br>RTC: <code id="rtc">–</code></p>
+  <input type="datetime-local" id="dt" step="1">
+  <br><button id="setdt">Set date</button>
+  <button id="setnow">Use this device's time</button>
+</section>
+<p id="msg"></p>
+
+<script>
+const $ = id => document.getElementById(id);
+const msg = t => $("msg").textContent = t;
+
+async function refresh() {
+  const s = await (await fetch("/api/status")).json();
+  $("file").textContent = s.file ?? "none";
+  $("playing").textContent = s.playing ? "playing" : "stopped";
+  $("sys").textContent = s.system_time;
+  $("rtc").textContent = s.rtc_time ?? "no RTC detected";
+}
+
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = $("audio").files[0];
+  msg("Uploading…");
+  const r = await fetch("/api/upload?name=" + encodeURIComponent(f.name), {method: "POST", body: f});
+  msg(r.ok ? "Uploaded." : "Error: " + (await r.json()).detail);
+  refresh();
+};
+
+async function setTime(epoch) {
+  const r = await fetch("/api/rtc", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({epoch})});
+  msg(r.ok ? "Date set." : "Error: " + (await r.json()).detail);
+  refresh();
+}
+$("setdt").onclick = () => $("dt").value ? setTime(Math.floor(new Date($("dt").value).getTime() / 1000)) : msg("Pick a date/time first.");
+$("setnow").onclick = () => setTime(Math.floor(Date.now() / 1000));
+
+refresh();
+</script>
+</body>
+</html>

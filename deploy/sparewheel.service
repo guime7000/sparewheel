@@ -1,0 +1,12 @@
+[Unit]
+Description=Sparewheel (relay + mpv audio + upload page + RTC setter)
+After=sound.target network.target
+
+[Service]
+EnvironmentFile=/etc/sparewheel.env
+# Root: needed for `date -s` / `hwclock` and port 80. Fine for an isolated AP box.
+ExecStart=/opt/sparewheel/venv/bin/uvicorn sparewheel.web:app --host 0.0.0.0 --port 80
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
