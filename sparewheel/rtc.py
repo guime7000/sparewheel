@@ -25,6 +25,6 @@ def rtc_time() -> str | None:
 def set_time(epoch: int) -> None:
     """Set system clock from a UTC epoch, then write it to the RTC."""
     if not 946684800 <= epoch <= 4102444800:  # 2000..2100
-        raise ValueError("date out of range")
+        raise ValueError("date hors limites (2000 à 2100)")
     _run("date", "-u", "-s", f"@{epoch}")
     _run("hwclock", "--utc", "--systohc")

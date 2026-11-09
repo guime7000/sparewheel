@@ -1,11 +1,18 @@
-import os
+import json
 import time
 
 import pytest
 
-os.environ["SPAREWHEEL_AUDIO_DIR"] = "/tmp/sparewheel-test-audio"
+from sparewheel import config, player
 
-from sparewheel import config, player  # noqa: E402
+
+@pytest.fixture(autouse=True)
+def dirs(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "AUDIO_DIR", tmp_path / "audio")
+    monkeypatch.setattr(config, "MPV_CONFIG", tmp_path / "audio" / "mpv_config.json")
+    (tmp_path / "audio" / "test").mkdir(parents=True)
+    (tmp_path / "audio" / "playback").mkdir()
+    return tmp_path / "audio"  # playback files go in dirs/"playback", test in dirs/"test"
 
 
 def test_safe_name_strips_path_and_rejects_non_audio():
@@ -14,19 +21,50 @@ def test_safe_name_strips_path_and_rejects_non_audio():
         player.safe_name("evil.sh")
 
 
-def test_current_file_is_newest(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "AUDIO_DIR", tmp_path)
-    assert player.current_file() is None
-    a, b = tmp_path / "a.mp3", tmp_path / "b.wav"
-    a.write_bytes(b"x"); time.sleep(0.01); b.write_bytes(b"x")
-    assert player.current_file() == b
+def test_slots_are_separate_and_newest_wins(dirs):
+    assert player.current_file("playback") is None
+    (dirs / "playback" / "a.mp3").write_bytes(b"x"); time.sleep(0.01); (dirs / "playback" / "b.wav").write_bytes(b"x")
+    (dirs / "test" / "t.ogg").write_bytes(b"x")
+    assert player.current_file("playback").name == "b.wav"
+    assert player.current_file("test").name == "t.ogg"
 
 
-def test_clear_audio_dir_removes_old_audio(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "AUDIO_DIR", tmp_path)
-    (tmp_path / "old.mp3").write_bytes(b"x")
-    (tmp_path / "half.wav.part").write_bytes(b"x")
-    (tmp_path / "notes.txt").write_bytes(b"x")
-    (tmp_path / "new.ogg").write_bytes(b"x")
-    player.clear_audio_dir(keep=tmp_path / "new.ogg")
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["new.ogg", "notes.txt"]
+def test_clear_slot_keeps_new_file_other_slot_and_non_audio(dirs):
+    (dirs / "playback" / "old.mp3").write_bytes(b"x"); (dirs / "playback" / "half.wav.part").write_bytes(b"x")
+    (dirs / "playback" / "notes.txt").write_bytes(b"x"); (dirs / "playback" / "new.ogg").write_bytes(b"x")
+    (dirs / "test" / "t.mp3").write_bytes(b"x")
+    player.clear_slot("playback", keep=dirs / "playback" / "new.ogg")
+    assert sorted(p.name for p in (dirs / "playback").iterdir()) == ["new.ogg", "notes.txt"]
+    assert (dirs / "test" / "t.mp3").exists()
+
+
+def test_volume_config_roundtrip_and_defaults():
+    assert player.load_config() == {"volume": 100}  # no file
+    player.save_config(37)
+    assert json.loads(config.MPV_CONFIG.read_text()) == {"volume": 37}
+    assert player.load_config() == {"volume": 37}
+    config.MPV_CONFIG.write_text("garbage")
+    assert player.load_config() == {"volume": 100}
+
+
+def test_mpv_launched_looping_with_saved_volume_and_ipc(dirs, monkeypatch):
+    (dirs / "playback" / "a.mp3").write_bytes(b"x")
+    player.save_config(42)
+    captured = {}
+
+    class P:
+        def poll(self): return None
+        def terminate(self): pass
+        def wait(self, timeout=None): pass
+
+    monkeypatch.setattr(player.subprocess, "Popen", lambda args: captured.setdefault("args", args) and P())
+    monkeypatch.setattr(player, "_force_alsa_mixer_to_max", lambda: None)
+    assert player.play("playback") == "a.mp3"
+    assert "--volume=42" in captured["args"] and "--loop-file=inf" in captured["args"]
+    assert any(a.startswith("--input-ipc-server=") for a in captured["args"])
+    sent = []
+    monkeypatch.setattr(player, "_ipc", sent.append)
+    player.set_volume(10, persist=False)
+    assert sent == [["set_property", "volume", 10]] and player.load_config()["volume"] == 42  # live only
+    player.set_volume(20, persist=True)
+    assert player.load_config()["volume"] == 20

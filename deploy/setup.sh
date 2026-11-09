@@ -14,7 +14,7 @@ apt-get update
 apt-get install -y mpv python3-venv python3-lgpio i2c-tools
 
 # --- app ---
-mkdir -p /opt/sparewheel /home/ohm/OhmFiles/audio
+mkdir -p /opt/sparewheel /home/ohm/OhmFiles/audio/playback /home/ohm/OhmFiles/audio/test
 chown -R ohm:ohm /home/ohm/OhmFiles  # user "ohm" must exist
 cp -r "$SRC/sparewheel" "$SRC/pyproject.toml" /opt/sparewheel/
 python3 -m venv --system-site-packages /opt/sparewheel/venv
