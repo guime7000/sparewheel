@@ -37,6 +37,21 @@ Over WiFi, the script drops your SSH session when the AP comes up: use Ethernet 
 The app runs as the systemd unit `sparewheel.service`, enabled at boot by `setup.sh` (`systemctl enable`): at each power-on it
 switches the relay on, starts mpv and serves the web app. Check with `systemctl status sparewheel` / `journalctl -u sparewheel`.
 
+### Ready-to-flash images (nothing to run on site)
+
+Instead of running `setup_host.sh` on each Pi, build the 15 images on your laptop from the golden image. Each one already has
+its hostname, WiFi access point (SSID = hostname), DNS entry and cloud-init disabled:
+
+    # 1. golden card: finish setup.sh + update.sh, remove the Imager WiFi profile, shut down
+    # 2. golden_image.img = dd + PiShrink of that card (see Appestrio's golden_image_plan.md)
+    # 3. on the laptop:
+    sudo ./deploy/make_images.sh golden_image.img out lumestrio 1 16      # asks the fleet passphrase
+    xz -9 -T0 out/*.img && sha256sum out/*.xz > out/SHA256SUMS            # optional, for transport
+
+This produces `out/lumestrio1.img` ... `lumestrio16.img`. Flash each one (Raspberry Pi Imager "Use custom"), power on, join
+the SSID `lumestrio7` and open `http://lumestrio7.local/`. The script refuses to build if the golden image still contains a
+WiFi client profile (so no home WiFi password ships). Try `... lumestrio 1 1` first and check the result before building all 15.
+
 **Updating a Pi after changing the code:** `sudo ./deploy/update.sh` from the repo (the service runs the copy installed in
 `/opt/sparewheel/venv`, not the repo files, so a plain `cp` is not enough).
 
