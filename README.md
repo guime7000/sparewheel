@@ -17,11 +17,27 @@ The volume is saved when the slider is released, in `/home/ohm/OhmFiles/audio/mp
 
 All of it is one small FastAPI service (`sparewheel/`) run by systemd; no DB, no build step.
 
-## Install (on the Pi, as root)
+## Deploying a fleet (golden image, same approach as Appestrio)
 
-    AP_SSID=sparewheel AP_PASSWORD=<8+ chars> RTC_MODEL=ds3231 ./deploy/setup.sh && reboot
+**1. Build the golden Pi once** (internet needed; user `ohm` must exist):
 
-Then join the WiFi and open http://10.42.0.1/. Settings (relay pin/polarity, loop, mpv args): `/etc/sparewheel.env`.
+    sudo ./deploy/setup.sh          # mpv + service + RTC overlay; no hostname, no AP
+    sudo reboot                     # check the service runs, then clone the SD card
+
+**2. On each clone** (15 of them), set hostname + WiFi access point. The SSID is the hostname:
+
+    sudo bash /opt/sparewheel/deploy/setup_host.sh                       # interactive
+    sudo DEVICE_HOSTNAME=sparewheel07 WIFI_PASSPHRASE=<8+ chars> bash /opt/sparewheel/deploy/setup_host.sh   # scripted
+
+`setup_host.sh` sets the hostname and `/etc/hosts`, disables cloud-init, creates the NetworkManager hotspot (Pi at `10.42.0.1`),
+disables autoconnect on any other WiFi profile (e.g. the Imager's) so the AP always wins `wlan0`, and adds a plain-DNS entry so
+`http://<hostname>.local/` also resolves on Android. Then `sudo reboot`, join the WiFi and open `http://<hostname>.local/`.
+Over WiFi, the script drops your SSH session when the AP comes up: use Ethernet or run it from the console.
+
+The app runs as the systemd unit `sparewheel.service`, enabled at boot by `setup.sh` (`systemctl enable`): at each power-on it
+switches the relay on, starts mpv and serves the web app. Check with `systemctl status sparewheel` / `journalctl -u sparewheel`.
+
+Settings (relay pin/polarity, mpv args, reboot command): `/etc/sparewheel.env`.
 
 ## Dev
 
