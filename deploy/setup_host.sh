@@ -48,12 +48,17 @@ else
 fi
 
 echo "--- Hostname ---"
+OLD_HOSTNAME="$(hostname)"   # the golden image's name (e.g. lumestrio9): replaced everywhere below
 hostnamectl set-hostname "$DEVICE_HOSTNAME"
 # Replace (not append): this host must only know itself by its own hostname, never a stale alias.
 if grep -q '^127\.0\.1\.1' /etc/hosts; then
     sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t${DEVICE_HOSTNAME}/" /etc/hosts
 else
     printf '127.0.1.1\t%s\n' "$DEVICE_HOSTNAME" >> /etc/hosts
+fi
+# Any other /etc/hosts line still carrying the old name (e.g. "127.0.0.1 localhost lumestrio9").
+if [ "$OLD_HOSTNAME" != "$DEVICE_HOSTNAME" ] && [[ "$OLD_HOSTNAME" =~ ^[A-Za-z0-9.-]+$ ]]; then
+    sed -i "s/\b${OLD_HOSTNAME//./\\.}\b/${DEVICE_HOSTNAME}/g" /etc/hosts
 fi
 hostname
 
@@ -81,12 +86,29 @@ nmcli -t -f NAME,TYPE connection show \
 
 # Android has no mDNS for ordinary apps, so answer plain DNS for <hostname>.local from the AP's dnsmasq.
 # 10.42.0.1 is NetworkManager's fixed gateway for "shared" APs (same on every device: isolated networks).
-mkdir -p /etc/NetworkManager/dnsmasq-shared.d
-echo "address=/${DEVICE_HOSTNAME}.local/10.42.0.1" > /etc/NetworkManager/dnsmasq-shared.d/sparewheel.conf
+DNSMASQ_DIR=/etc/NetworkManager/dnsmasq-shared.d
+mkdir -p "$DNSMASQ_DIR"
+# Drop stale entries answering for the OLD name (e.g. Appestrio's lumestrio.conf on a reused image).
+if [ "$OLD_HOSTNAME" != "$DEVICE_HOSTNAME" ]; then
+    { grep -l -F -- "${OLD_HOSTNAME}.local" "$DNSMASQ_DIR"/* 2>/dev/null || true; } | while IFS= read -r f; do
+        echo "  removing stale DNS entry $f"; rm -f -- "$f"
+    done
+fi
+echo "address=/${DEVICE_HOSTNAME}.local/10.42.0.1" > "$DNSMASQ_DIR/sparewheel.conf"
 
 echo "WARNING: if you are connected over WiFi, bringing the AP up drops this session."
 nmcli connection down "$CON_NAME" 2>/dev/null || true
 nmcli connection up "$CON_NAME"
+
+# Report (not modify) anything else under /etc still mentioning the old name.
+if [ "$OLD_HOSTNAME" != "$DEVICE_HOSTNAME" ]; then
+    LEFT="$({ grep -rIl -F -- "$OLD_HOSTNAME" /etc 2>/dev/null || true; } | grep -v -E '^/etc/(ssl|ca-certificates)/' || true)"
+    if [ -n "$LEFT" ]; then
+        echo
+        echo "NOTE: these files under /etc still mention the old name '$OLD_HOSTNAME' (check they are harmless):"
+        echo "$LEFT" | sed 's/^/  /'
+    fi
+fi
 
 echo
 echo "=== Done: SSID '$DEVICE_HOSTNAME' -> http://$DEVICE_HOSTNAME.local/  (or http://10.42.0.1/) ==="
