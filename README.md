@@ -37,6 +37,9 @@ Over WiFi, the script drops your SSH session when the AP comes up: use Ethernet 
 The app runs as the systemd unit `sparewheel.service`, enabled at boot by `setup.sh` (`systemctl enable`): at each power-on it
 switches the relay on, starts mpv and serves the web app. Check with `systemctl status sparewheel` / `journalctl -u sparewheel`.
 
+**Updating a Pi after changing the code:** `sudo ./deploy/update.sh` from the repo (the service runs the copy installed in
+`/opt/sparewheel/venv`, not the repo files, so a plain `cp` is not enough).
+
 Settings (relay pin/polarity, mpv args, reboot command): `/etc/sparewheel.env`.
 
 ## Dev
