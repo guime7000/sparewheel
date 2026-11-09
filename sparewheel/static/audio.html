@@ -2,19 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sparewheel</title>
-<style>
-  body{font-family:system-ui,sans-serif;max-width:32rem;margin:1rem auto;padding:0 1rem}
-  section{border:1px solid #8884;border-radius:8px;padding:1rem;margin:1rem 0}
-  form{margin:.5rem 0 1rem} button{padding:.5rem 1rem;margin:.25rem .25rem 0 0}
-  input[type=range]{width:100%} #msg{min-height:1.5em;color:#c00}
-</style>
+<title>Sparewheel – Audio</title>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<h1>Sparewheel</h1>
-
+<nav>
+  <a href="/audio" class="current">Audio</a>
+  <a href="/rtc">Date / RTC</a>
+  <a href="/relay">Test relais</a>
+  <a href="/reboot">Redémarrage</a>
+</nav>
+<h1>Audio</h1>
 <section>
-  <h2>Audio</h2>
   <p>Son de lecture actuel : <b id="playback_file">–</b><br>Son test actuel : <b id="test_file">–</b></p>
 
   <form data-slot="playback">
@@ -26,8 +25,10 @@
     <button type="submit">Envoyer</button>
   </form>
   <small>Un nouvel envoi remplace le fichier précédent une fois qu'il est entièrement reçu, puis la lecture démarre.</small>
+</section>
 
-  <h3>Lecture</h3>
+<section>
+  <h2>Lecture</h2>
   <button id="play">▶ Lecture</button>
   <button id="playtest">▶ Son test</button>
   <button id="stop">⏹ Stop</button>
@@ -36,21 +37,12 @@
   <p><label>Volume (<span id="vol_label">100</span>)
     <input type="range" id="vol" min="0" max="100" value="100"></label></p>
 </section>
-
-<section>
-  <h2>Date / horloge RTC</h2>
-  <p>Système : <code id="sys">–</code><br>RTC : <code id="rtc">–</code></p>
-  <input type="datetime-local" id="dt" step="1">
-  <br><button id="setdt">Régler la date</button>
-  <button id="setnow">Utiliser l'heure de cet appareil</button>
-</section>
 <p id="msg"></p>
 
 <script>
 const $ = id => document.getElementById(id);
 const msg = t => $("msg").textContent = t;
 const post = (url, body, opts = {}) => fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: body && JSON.stringify(body), ...opts});
-
 async function call(url, body) {
   const r = await post(url, body);
   msg(r.ok ? "" : "Erreur : " + (await r.json()).detail);
@@ -66,8 +58,6 @@ async function refresh() {
   $("play").disabled = !s.playback_file;
   $("playtest").disabled = !s.test_file;
   $("stop").disabled = !s.playing;
-  $("sys").textContent = s.system_time;
-  $("rtc").textContent = s.rtc_time ?? "aucune RTC détectée";
   if (firstLoad) { $("vol").value = s.volume; $("vol_label").textContent = s.volume; firstLoad = false; }
 }
 
@@ -97,12 +87,6 @@ async function sendVolume(volume, persist) {
 }
 $("vol").oninput = () => { $("vol_label").textContent = $("vol").value; sendVolume(+$("vol").value, false); };
 $("vol").onchange = () => sendVolume(+$("vol").value, true);
-
-async function setTime(epoch) { await call("/api/rtc", {epoch}); }
-$("setdt").onclick = () => $("dt").value ? setTime(Math.floor(new Date($("dt").value).getTime() / 1000)) : msg("Choisissez d'abord une date et une heure.");
-$("setnow").onclick = () => setTime(Math.floor(Date.now() / 1000));
-
-refresh();
 </script>
 </body>
 </html>

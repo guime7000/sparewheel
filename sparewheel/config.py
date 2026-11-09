@@ -14,3 +14,5 @@ MPV_EXTRA_ARGS = os.environ.get("SPAREWHEEL_MPV_ARGS", "").split()
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".opus"}
 MAX_UPLOAD_BYTES = int(os.environ.get("SPAREWHEEL_MAX_UPLOAD_MB", "200")) * 1024 * 1024
 DEFAULT_VOLUME = 100
+# Command run by the Reboot page. Override in dev (e.g. "echo reboot") so a laptop is never rebooted by accident.
+REBOOT_CMD = os.environ.get("SPAREWHEEL_REBOOT_CMD", "systemctl reboot")

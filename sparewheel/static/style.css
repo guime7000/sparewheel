@@ -1,0 +1,9 @@
+body{font-family:system-ui,sans-serif;max-width:32rem;margin:1rem auto;padding:0 1rem}
+nav{display:flex;gap:1rem;padding-bottom:.5rem;border-bottom:1px solid #8884}
+nav a{text-decoration:none;padding:.25rem .5rem;border-radius:4px}
+nav a.current{font-weight:bold;background:#8882}
+section{border:1px solid #8884;border-radius:8px;padding:1rem;margin:1rem 0}
+form{margin:.5rem 0 1rem}
+button{padding:.5rem 1rem;margin:.25rem .25rem 0 0}
+input[type=range]{width:100%}
+#msg{min-height:1.5em;color:#c00}

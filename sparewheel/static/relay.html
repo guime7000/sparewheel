@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sparewheel – Test relais</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav>
+  <a href="/audio">Audio</a>
+  <a href="/rtc">Date / RTC</a>
+  <a href="/relay" class="current">Test relais</a>
+  <a href="/reboot">Redémarrage</a>
+</nav>
+<h1>Test relais</h1>
+<p>État du relais : <b id="state">–</b></p>
+<button id="on" disabled>Allumer</button>
+<button id="off" disabled>Éteindre</button>
+<p id="msg"></p>
+
+<script>
+const $ = id => document.getElementById(id);
+const msg = t => $("msg").textContent = t;
+
+// Allumer is greyed while the relay is on, Éteindre while it is off.
+function show(on) {
+  $("state").textContent = on ? "allumé" : "éteint";
+  $("on").disabled = on;
+  $("off").disabled = !on;
+}
+
+async function setRelay(on) {
+  $("on").disabled = $("off").disabled = true;
+  try {
+    const r = await fetch("/api/relay", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({on})});
+    if (!r.ok) throw new Error((await r.json()).detail);
+    msg("");
+    show((await r.json()).relay);
+  } catch (err) {
+    msg("Erreur : " + err.message);
+    refresh();
+  }
+}
+$("on").onclick = () => setRelay(true);
+$("off").onclick = () => setRelay(false);
+
+async function refresh() { show((await (await fetch("/api/status")).json()).relay); }
+refresh();
+</script>
+</body>
+</html>

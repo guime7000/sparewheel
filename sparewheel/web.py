@@ -2,11 +2,13 @@
 
 import logging
 import os
+import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import config, player, relay, rtc
@@ -19,19 +21,49 @@ STATIC = Path(__file__).parent / "static"
 async def lifespan(_: FastAPI):
     for slot in ("playback", "test"):
         player.slot_dir(slot).mkdir(parents=True, exist_ok=True)
-    relay.on()  # relay + playback audio both start as soon as the service does (at boot)
+    relay.set_state(True)  # relay + playback audio both start as soon as the service does (at boot)
     player.play("playback")
     yield
     player.stop()
-    relay.off()
+    relay.close()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
 
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    return RedirectResponse("/audio")
+
+
+@app.get("/audio")
+def audio_page():
+    return FileResponse(STATIC / "audio.html")
+
+
+@app.get("/relay")
+def relay_page():
+    return FileResponse(STATIC / "relay.html")
+
+
+@app.get("/rtc")
+def rtc_page():
+    return FileResponse(STATIC / "rtc.html")
+
+
+@app.get("/reboot")
+def reboot_page():
+    return FileResponse(STATIC / "reboot.html")
+
+
+@app.post("/api/reboot")
+def reboot():
+    # Delay so this HTTP response reaches the browser before the system goes down.
+    subprocess.Popen(["sh", "-c", f"sleep 1; {config.REBOOT_CMD}"])
+    return {"rebooting": True}
 
 
 def status() -> dict:
@@ -41,6 +73,7 @@ def status() -> dict:
         "test_file": test.name if test else None,
         "playing": player.playing_slot(),  # "playback" | "test" | None
         "volume": player.load_config()["volume"],
+        "relay": relay.is_on(),
         "system_time": rtc.system_time(),
         "rtc_time": rtc.rtc_time(),
     }
@@ -69,6 +102,16 @@ def play_test():
 def stop():
     player.stop()
     return status()
+
+
+class RelayState(BaseModel):
+    on: bool
+
+
+@app.post("/api/relay")
+def set_relay(body: RelayState):
+    relay.set_state(body.on)
+    return {"relay": relay.is_on()}
 
 
 class Volume(BaseModel):

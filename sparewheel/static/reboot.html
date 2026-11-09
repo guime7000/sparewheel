@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sparewheel – Redémarrage</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav>
+  <a href="/audio">Audio</a>
+  <a href="/rtc">Date / RTC</a>
+  <a href="/relay">Test relais</a>
+  <a href="/reboot" class="current">Redémarrage</a>
+</nav>
+<h1>Redémarrage</h1>
+<button id="reboot" style="padding:.75rem 1.5rem;font-size:1.1rem">⟲ Redémarrer le Raspberry Pi</button>
+<p id="msg"></p>
+
+<script>
+const $ = id => document.getElementById(id);
+const msg = t => $("msg").textContent = t;
+const post = (url, body, opts = {}) => fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: body && JSON.stringify(body), ...opts});
+document.getElementById("reboot").onclick = async (e) => {
+  if (!confirm("Voulez-vous vraiment redémarrer le Raspberry Pi ?\nLa lecture sera interrompue et le WiFi coupé pendant quelques instants.")) return;
+  e.target.disabled = true;
+  try {
+    const r = await fetch("/api/reboot", {method: "POST"});
+    if (!r.ok) throw new Error((await r.json()).detail);
+    msg("Redémarrage en cours… Reconnectez-vous au WiFi dans une minute environ.");
+  } catch (err) {
+    msg("Erreur : " + err.message);
+    e.target.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
