@@ -15,9 +15,18 @@ def system_time() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def parse_hwclock(output: str) -> str:
+    """`hwclock -r` prints local time with an offset (2026-11-09 22:51:16.69+01:00): show it in UTC,
+    like system_time(), so both lines compare directly. Unparseable output is returned as is."""
+    try:
+        return datetime.fromisoformat(output.strip()).astimezone(timezone.utc).isoformat(timespec="seconds")
+    except ValueError:
+        return output.strip()
+
+
 def rtc_time() -> str | None:
     try:
-        return _run("hwclock", "--utc", "-r")
+        return parse_hwclock(_run("hwclock", "--utc", "-r"))
     except Exception:
         return None
 

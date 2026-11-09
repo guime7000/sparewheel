@@ -68,3 +68,10 @@ def test_mpv_launched_looping_with_saved_volume_and_ipc(dirs, monkeypatch):
     assert sent == [["set_property", "volume", 10]] and player.load_config()["volume"] == 42  # live only
     player.set_volume(20, persist=True)
     assert player.load_config()["volume"] == 20
+
+
+def test_hwclock_output_is_shown_in_utc():
+    from sparewheel import rtc
+
+    assert rtc.parse_hwclock("2026-11-09 22:51:16.691963+01:00") == "2026-11-09T21:51:16+00:00"
+    assert rtc.parse_hwclock("weird output") == "weird output"
