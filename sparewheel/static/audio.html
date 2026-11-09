@@ -87,6 +87,8 @@ async function sendVolume(volume, persist) {
 }
 $("vol").oninput = () => { $("vol_label").textContent = $("vol").value; sendVolume(+$("vol").value, false); };
 $("vol").onchange = () => sendVolume(+$("vol").value, true);
+
+refresh();
 </script>
 </body>
 </html>
